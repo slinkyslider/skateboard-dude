@@ -1,0 +1,343 @@
+<html>
+<head>
+<style>
+canvas {
+	border:1px solid #d3d3d3;
+    background-color: #ffffff
+}
+</style>
+</head>
+<body onload="start()">
+<p id="m"></p>
+<script>
+var bcw
+var bch
+var middley;
+var V = 150;
+var velocity = 1
+var acc = 1
+var space = 0;
+var crash = "no"
+var fall = 1;
+var fallV = 1;
+
+var platform1;
+var platform2;
+var halfPipe;
+
+var board;
+var wheel1;
+var wheel2;
+
+var leg1;
+var leg2;
+var body;
+var arm1;
+var arm2;
+var head;
+
+function start() {
+  background.start();
+  bcw = background.canvas.width
+  bch = background.canvas.height
+  middley = bch - (bcw/3 + 25)
+  platform1 = new line(bcw - bcw, middley, bcw/2 - bcw/3, middley);
+  platform2 = new line(bcw, middley, bcw/2 + bcw/3, middley)
+  halfPipe = new arc(bcw/2, middley, bcw/3, 1);
+  
+  board = new line(bcw/2, middley, bcw/2, middley)
+  wheel1 = new arc(0, 0, 2.5, 2)
+  wheel2 = new arc(0, 0, 2.5, 2)
+  
+  leg1 = new line(0, 0, 0, 0)
+  leg2 = new line(0, 0, 0, 0)
+  body = new line(0, 0, 0, 0)
+  arm1 = new line(0, 0, 0, 0)
+  arm2 = new line(0, 0, 0, 0)
+  head = new arc(0, 0, 4, 2)
+  hat = new line(0, 0, 0, 0)
+}
+
+var background = {
+  canvas:document.createElement("canvas"),
+  start:function() {
+    this.canvas.width = 450;
+    this.canvas.height = 440;
+    this.context = this.canvas.getContext("2d")
+    document.body.insertBefore(this.canvas, document.body.childNodes[0])
+    this.interval = setInterval(update, 20)
+    window.addEventListener('keydown', function (e) {
+      background.keys = (background.keys || []);
+      background.keys[e.keyCode] = true;
+    })
+    window.addEventListener('keyup', function (e) {
+      background.keys[e.keyCode] = false;
+    })
+  },
+  clear:function() {
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+  }
+}
+
+function line(startx, starty, endx, endy) {
+  this.startx = startx;
+  this.starty = starty;
+  this.endx = endx;
+  this.endy = endy;
+  this.update = function() {
+    ctx = background.context;
+    ctx.beginPath();
+    ctx.moveTo(this.startx, this.starty);
+    ctx.lineTo(this.endx, this.endy);
+    ctx.stroke();
+  }
+}
+
+function arc(x, y, radius, arc, type) {
+	this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.arc = arc;
+    this.type = type;
+    this.update = function() {
+    	ctx = background.context;
+    	ctx.beginPath();
+    	ctx.arc(this.x, this.y, this.radius, 0, arc * Math.PI);
+    	ctx.stroke();
+        if (type == "fill") {
+        	ctx.fill()
+        }
+    }
+}
+
+function square(x, y, width, height) {
+	this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.update = function() {
+    	ctx = background.context;
+        ctx.beginPath();
+        ctx.rect(this.x, this.y, this.width, this.height);
+        ctx.stroke();
+    }
+}  
+
+function update() {
+    p()
+	background.clear();
+    vel()
+    terrain_update()
+    board_update()
+    guy_update()
+    main()
+    if (body.starty > bch) {
+    	if (background.keys && background.keys[32]) {
+        	fall = 1
+            fallV = 1
+            V = 150;
+			velocity = 1
+			acc = 1
+    		crash = "no"
+    	}
+    }
+}
+
+function main() {
+	if (body.starty < 0) {	
+    	crash = "yes"
+    }
+    if (crash == "yes") {
+		fall_();
+    } else {
+    	if (board.starty < middley) {
+    		jump()
+    	} else {
+			rotate()
+    	}
+    }
+}
+
+function jump() {
+    if (board.startx < bcw/2) {
+		left_jump()
+    }
+    if (board.startx > bcw/2) {
+		right_jump()
+    }
+}
+
+function rotate() {
+    V += velocity;
+	board_rotate()
+    guy_rotate()
+	boost()
+}
+
+function vel() {
+    if (Math.sin(V/30)*(bcw/3-5) + bcw/2 < bcw/2) {
+    	velocity += .05
+    }
+    if (Math.sin(V/30)*(bcw/3-5) + bcw/2 > bcw/2) {
+    	velocity -= .05
+    }
+    velocity *= .995
+}
+
+function boost() {
+	if (background.keys && background.keys[32]) {
+        space += 1
+	} else {
+        space = 0
+    }
+    if (space > 1) {
+    	space = 2
+    }
+    if (space == 1) {
+        if (velocity > 0) {
+    		velocity += .5
+    	}
+    	if (velocity < 0) {
+    		velocity -= .5
+    	}
+    }
+    if (background.keys && background.keys[40]) {
+        velocity *= .9
+    }
+}
+
+function fall_() {
+	fallV += .5
+    fall += fallV
+    board.starty = fall
+    board.endy = fall
+    wheel1.y = fall
+    wheel2.y = fall
+            
+    leg1.starty = fall-5
+    leg1.endy = fall
+    leg2.starty += fallV+2
+    leg2.endy += fallV+2
+    body.starty += fallV+2
+    body.endy += fallV+2
+    arm1.starty = fall+4
+    arm1.endy = fall
+    arm2.starty = fall-2
+    arm2.endy = fall
+    head.y += fallV-1
+    
+    leg1.startx += 4
+    leg1.endx += 4
+    leg2.startx += -2
+    leg2.endx += -2
+    body.startx += 3
+    body.endx += 3
+    arm1.startx += -3
+    arm1.endx += -3
+    arm2.startx += 1
+    arm2.endx += 1
+    head.x += -3
+}
+
+function left_jump() {
+    board.starty += velocity*((bcw/3)/30)
+    board.endy += velocity*((bcw/3)/30)
+    wheel1.y += velocity*((bcw/3)/30)
+    wheel2.y += velocity*((bcw/3)/30)
+            
+    leg1.starty += velocity*((bcw/3)/30)
+    leg1.endy += velocity*((bcw/3)/30)
+    leg2.starty += velocity*((bcw/3)/30)
+    leg2.endy += velocity*((bcw/3)/30)
+    body.starty += velocity*((bcw/3)/30)
+    body.endy += velocity*((bcw/3)/30)
+    arm1.starty += velocity*((bcw/3)/30)
+    arm1.endy += velocity*((bcw/3)/30)
+    arm2.starty += velocity*((bcw/3)/30)
+    arm2.endy += velocity*((bcw/3)/30)
+    head.y += velocity*((bcw/3)/30)
+}
+
+function right_jump() {
+    board.starty -= velocity*((bcw/3)/30)
+    board.endy -= velocity*((bcw/3)/30)
+    wheel1.y -= velocity*((bcw/3)/30)
+    wheel2.y -= velocity*((bcw/3)/30)
+            
+    leg1.starty -= velocity*((bcw/3)/30)
+    leg1.endy -= velocity*((bcw/3)/30)
+    leg2.starty -= velocity*((bcw/3)/30)
+    leg2.endy -= velocity*((bcw/3)/30)
+    body.starty -= velocity*((bcw/3)/30)
+    body.endy -= velocity*((bcw/3)/30)
+    arm1.starty -= velocity*((bcw/3)/30)
+    arm1.endy -= velocity*((bcw/3)/30)
+    arm2.starty -= velocity*((bcw/3)/30)
+    arm2.endy -= velocity*((bcw/3)/30)
+    head.y -= velocity*((bcw/3)/30)
+}
+
+function terrain_update() {
+	platform1.update();
+	platform2.update();
+	halfPipe.update();
+}
+
+function board_update() {
+    board.update();
+    wheel1.update();
+    wheel2.update();
+}
+
+function guy_update() {
+    leg1.update()
+    leg2.update()
+    body.update()
+    arm1.update()
+    arm2.update()
+    head.update()
+    hat.update()
+}
+
+function board_rotate() {
+    board.startx = Math.sin(V/30-.1)*(bcw/3-5) + bcw/2
+    board.starty = Math.cos(V/30-.1)*(bcw/3-5) + middley
+    board.endx = Math.sin(V/30+.1)*(bcw/3-5) + bcw/2
+    board.endy = Math.cos(V/30+.1)*(bcw/3-5) + middley
+    wheel1.x = Math.sin(V/30-.05)*(bcw/3-2.5) + bcw/2 
+    wheel1.y = Math.cos(V/30-.05)*(bcw/3-2.5) + middley
+    wheel2.x = Math.sin(V/30+.05)*(bcw/3-2.5) + bcw/2
+    wheel2.y = Math.cos(V/30+.05)*(bcw/3-2.5) + middley
+}
+
+function guy_rotate() {
+    leg1.startx = Math.sin(V/30-.04)*(bcw/3-5) + bcw/2
+    leg1.starty = Math.cos(V/30-.04)*(bcw/3-5) + middley
+    leg1.endx = Math.sin(V/30)*(bcw/3-20) + bcw/2
+    leg1.endy = Math.cos(V/30)*(bcw/3-20) + middley
+    leg2.startx = Math.sin(V/30+.04)*(bcw/3-5) + bcw/2
+    leg2.starty = Math.cos(V/30+.04)*(bcw/3-5) + middley
+    leg2.endx = Math.sin(V/30)*(bcw/3-20) + bcw/2
+    leg2.endy = Math.cos(V/30)*(bcw/3-20) + middley
+    body.startx = Math.sin(V/30)*(bcw/3-20) + bcw/2
+    body.starty = Math.cos(V/30)*(bcw/3-20) + middley
+    body.endx = Math.sin(V/30)*(bcw/3-32) + bcw/2
+    body.endy = Math.cos(V/30)*(bcw/3-32) + middley
+    arm1.startx = Math.sin(V/30)*(bcw/3-30) + bcw/2
+    arm1.starty = Math.cos(V/30)*(bcw/3-30) + middley
+    arm1.endx = Math.sin(V/30-.06)*(bcw/3-20) + bcw/2
+    arm1.endy = Math.cos(V/30-.06)*(bcw/3-20) + middley
+    arm2.startx = Math.sin(V/30)*(bcw/3-30) + bcw/2
+    arm2.starty = Math.cos(V/30)*(bcw/3-30) + middley
+    arm2.endx = Math.sin(V/30+.06)*(bcw/3-20) + bcw/2
+    arm2.endy = Math.cos(V/30+.06)*(bcw/3-20) + middley
+    head.x = Math.sin(V/30)*(bcw/3-35) + bcw/2
+    head.y = Math.cos(V/30)*(bcw/3-35) + middley
+}
+
+function p() {
+	document.getElementById("m").innerHTML
+}
+</script>
+</body>
+</html>
